@@ -1,1 +1,3 @@
-# ax.ct
+# ax.ct [![Build Status](https://travis-ci.org/Mototroller/ax.ct.svg?branch=master)](https://travis-ci.org/Mototroller/ax.ct)
+
+Some compile-time powahful shit. README to be continued...

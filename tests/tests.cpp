@@ -4,8 +4,6 @@
 
 using namespace ax;
 
-#define TEST_STRING "aba*|c"
-
 void ct_test() {
     using namespace ct;
     
@@ -26,43 +24,70 @@ void ct_test() {
             char,
             leaf<char>
         >;
-        stdcout(height<tree>::value);
+        
+        static_assert(height<tree>::value == 3, "");
+    }
+    
+    {
+        using namespace ctstr;
+        
+        constexpr auto* str1 = "aababa";
+        
+        constexpr auto* pat1 = "aba";
+        constexpr auto* pat2 = "abaa";
+        constexpr auto* pat3 = "ba";
+        constexpr auto* pat4 = "a";
+        
+        static_assert(find_substr(str1, str1) == 0, "");
+        static_assert(find_substr(str1, pat1) == 1, "");
+        static_assert(find_substr(str1, pat2) == npos, "");
+        static_assert(find_substr(str1, pat3) == 2, "");
+        static_assert(find_substr(str1, pat4) == 0, "");
+        
+        static_assert(count_substr(str1, str1) == 1, "");
+        static_assert(count_substr(str1, pat1) == 1, "");
+        static_assert(count_substr(str1, pat2) == 0, "");
+        static_assert(count_substr(str1, pat3) == 2, "");
+        static_assert(count_substr(str1, pat4) == 4, "");
+        
+        constexpr auto* str2 = "abc*|d";
+        
+        DEFINE_LITERAL(literal, str2);
+        
+        using str = string<literal>;
+        
+        static_assert(str::length == strlen(str2), "");
+        static_assert(str::at(0) == 'a', "");
+        static_assert(str::at(5) == 'd', "");
+        static_assert(eq<str,str>::value, "");
+        
+        LIGHT_TEST(str::to_string() == str2);
+        
+        using sub = str::substr_t<1,str::length>;
+        
+        static_assert(sub::length + 1 == str::length, "");
+        static_assert(sub::at(0) == 'b', "");
+        static_assert(sub::at(4) == 'd', "");
+        static_assert(!eq<sub,str>::value, "");
+        
+        using conc = concat_t<str,sub>;
+        
+        LIGHT_TEST(conc::to_string() == str::to_string() + sub::to_string());
+        
+        using packed = string_to_tuple_t<str>;
+        using unpacked = tuple_to_string_t<packed>;
+        
+        static_assert(eq<str,unpacked>::value, "");
     }
     
     {
         using namespace cregex;
         
-        //struct Str { static constexpr const char * const str() { return TEST_STRING; } };
-        DEFINE_LITERAL(Str, TEST_STRING);
+        #define TEST_REGEX "aba*|c"
         
-        using WStr = string<Str>;
-        
-        stdcout(WStr::length, " ", WStr::source());
-        auto at1 = WStr::char_at<0>::value;
-        auto at2 = WStr::at(5);
-        stdcout(at1, " ", at2, " ", WStr::to_string(), " ", WStr::is_base);
-        
-        using subWStr = WStr::substr_t<1,WStr::length>;
-        auto at3 = subWStr::at(0);
-        auto at4 = subWStr::at(1);
-        stdcout(at3, " ", at4, " ", subWStr::to_string(), " ", subWStr::is_base);
-        
-        using sub2WStr = subWStr::substr_t<1,subWStr::length>;
-        auto at5 = sub2WStr ::at(0);
-        auto at6 = sub2WStr ::at(1);
-        stdcout(at5, " ", at6, " ", sub2WStr ::to_string(), " ", sub2WStr ::is_base);
-        
-        using tuplified = literal_to_tuple_t<WStr>;
-        stdcout(tuple_printer<tuplified>::print());
-        
-        using unpacked = typename tuple_to_literal<tuplified>::type;
-        stdcout(unpacked::to_string());
-        
-        stdcout(sizeof(std::decay<decltype(U"qwerty"[0])>::type));
+        #undef TEST_REGEX
     }
 }
-
-#undef TEST_STRING
 
 int main() {
     ct_test();

@@ -11,25 +11,33 @@
 namespace ax { namespace ct {
 
 template <typename T>
-constexpr T min(T a, T b) {
-    return a > b ? b : a; }
+constexpr T min(T a, T b) { return a > b ? b : a; }
 
 template <typename T>
-constexpr T max(T a, T b) {
-    return a < b ? b : a; }
+constexpr T max(T a, T b) { return a < b ? b : a; }
 
+/// Concatenates two tuples
 template <typename U, typename V>
 struct tuple_concat;
-
-template <typename... L1, typename... L2>
-struct tuple_concat<std::tuple<L1...>, std::tuple<L2...>> {
-    using type = std::tuple<L1..., L2...>; };
 
 template <typename U, typename V>
 using tuple_concat_t = typename tuple_concat<U,V>::type;
 
+/// Constructs new tuple by range in Source [From,To)
+template <typename Source, size_t From, size_t To, typename Acc = std::tuple<>>
+struct tuple_reduce;
+
+template <typename Source, size_t From, size_t To, typename Acc = std::tuple<>>
+using tuple_reduce_t = typename tuple_reduce<Source,From,To,Acc>::type;
+
+
 /// Contains some compile-time string algorithms
 namespace ctstr {
+    
+    using npos_type = decltype(std::string::npos);
+    
+    /// Explicitly defined std::string::npos
+    enum : npos_type { npos = std::string::npos };
     
     /// Explicitly defined constexpr strlen()
     template <typename Char>
@@ -37,34 +45,45 @@ namespace ctstr {
         return str[acc] == Char{'\0'} ? acc : strlen(str, acc + 1); }
     
     template <typename Char>
-    constexpr size_t count_substr_impl(Char const* c, Char const* s, size_t number, size_t offset) {
-        return 
-        (*c == Char{'\0'}) ? ( // end of string
-            number + (s[offset] == Char{'\0'}) // last match
+    constexpr size_t find_substr_impl(
+        Char const* c, Char const* s,
+        size_t result, size_t offset, size_t pos
+    ) {
+        return
+        (s[offset] == Char{'\0'}) ? ( // matching completed
+            result
         ) : (
-            (s[offset] == Char{'\0'}) ? ( // match completed
-                count_substr_impl(c, s, number + 1, 0) // reset, continue
+            (c[pos] == Char{'\0'}) ? ( // end of string
+                npos
             ) : (
-                (*c == s[offset]) ? (
-                    count_substr_impl(c + 1, s, number, offset + 1) // symbol, continue
-                ) : (
-                    count_substr_impl(c + (offset == 0), s, number, 0) // fail, continue/reset
+                (c[pos] == s[offset]) ? ( // symbol, continue (or start if offset == 0)
+                    find_substr_impl(c, s, (offset == 0 ? pos : result), offset + 1, pos + 1)
+                ) : ( // fail, reset
+                    find_substr_impl(c, s, 0, 0, (offset == 0 ? pos + 1 : result + 1))
                 )
             )
         );
     }
     
+    /// @returns position of the first occurrence, std::string::npos otherwise
+    template <typename Char>
+    constexpr size_t find_substr(Char const* c, Char const* s, size_t from = 0) {
+        return find_substr_impl(c, s, 0, 0, from); }
+    
     /// @returns the number of occurrences of substring
     template <typename Char>
     constexpr size_t count_substr(Char const* c, Char const* s) {
-        return count_substr_impl(c, s, 0, 0); }
-    
+        return find_substr(c, s) == npos ? 0 : 1 + count_substr(&c[find_substr(c, s) + strlen(s)], s);
+    }
     
     /// --- Literals --- ///
     
     /// Character <=> type
     template <typename CharT, CharT C>
-    struct basic_char_t { enum : CharT { value = C }; };
+    struct basic_char_t {
+        using char_type = CharT;
+        enum : char_type { value = C };
+    };
     
     template <char C>
     using char_t = basic_char_t<char, C>;
@@ -72,112 +91,124 @@ namespace ctstr {
     /// Example of prepared to use string literal
     struct literal_example_ {
         /// Symbols type
-        using CharT = std::decay<decltype("example"[0])>::type;
+        using CharT = typename std::decay<decltype("example"[0])>::type;
         
         /// Literal
         static constexpr const CharT* const str() { return "example"; }
     };
     
     /// Wraps given string literal to structure
-    #define DEFINE_LITERAL(name, string) \
-        struct name { \
-            using CharT = std::decay<decltype(string[0])>::type; \
-            static constexpr const CharT* const str() { return string; } \
-        }
+    #define DEFINE_LITERAL(name, string) struct name { \
+        using CharT = typename std::decay<decltype(string[0])>::type; \
+        static constexpr const CharT* const str() { return string; } }
+    
+    /// Represents characters subset of given string [from,to)
+    template <typename, size_t, size_t>
+    struct subset;
+    
+    /// Unpacks subset of characters to tuple (adds null-terminator)
+    template <typename>
+    struct subset_to_tuple;
+    
+    /// Unpacks full string to tuple (with null-terminator)
+    template <typename>
+    struct string_to_tuple;
+    
+    template <typename S>
+    using string_to_tuple_t = typename string_to_tuple<S>::type;
+    
+    /// Packs tuple of character classes to string
+    template <typename>
+    struct tuple_to_string;
+    
+    template <typename T>
+    using tuple_to_string_t = typename tuple_to_string<T>::type;
+    
+    /// Constructs string with character types values ("char" supported)
+    template <typename>
+    struct tuple_printer;
     
     /// Wrapper, allows compile-time "string" (literal) manipulation and analysis
-    template <typename T, size_t Alpha = 0, size_t Omega = strlen(T::str())>
+    template <typename T>
     struct string {
-        static_assert(Alpha <= Omega, LOG_HEAD "invalid bounds");
         
-        /// Provides base type wrapping full literal
-        using base = string<T, 0, strlen(T::str())>;
+        using CharT = typename T::CharT;
+        using std_string = std::basic_string<CharT>;
         
-        enum : size_t { alpha = Alpha }; // first character index
-        enum : size_t { omega = Omega }; // last character index (not inclusive)
+        template <CharT C>
+        using xchar_t = basic_char_t<CharT, C>;
         
-        enum : size_t { length = omega - alpha };
-        enum : bool   { is_base = std::is_same<base, string>::value };
+        enum : size_t { length = strlen(T::str()) };
         
-        /// Provides "substring" type
-        template <size_t begin, size_t end>
-        using substr_t = string<T, alpha + begin, alpha + end>;
+        /// Equivalent of full string
+        using main_subset = subset<string, 0, length>;
         
-        /// @returns basic string literal (pointer)
-        constexpr static char const* const source() {
+        /// @returns pointer to string literal
+        constexpr static CharT const* const str() {
             return T::str(); }
         
         /// @returns character by index
-        constexpr static char const at(size_t idx) {
-            return source()[alpha + idx]; }
+        constexpr static CharT const at(size_t idx) {
+            return main_subset::at(idx); }
         
-        template <size_t idx>
-        struct char_at : std::integral_constant<char, at(idx)> {
-            static_assert(idx <= length, LOG_HEAD "at() index beyond the bounds"); };
+        static std_string to_string() {
+            return main_subset::to_string(); }
         
-        static std::string to_string() {
-            return std::string(&source()[alpha], length); }
-    };
-    
-    
-    
-    
-    
-    /// Creates tuple of symbol classes from given string
-    template <typename>
-    struct literal_to_tuple;
-    
-    template <typename T, size_t I>
-    struct literal_to_tuple<string<T,I,I>> {
-        using type = std::tuple<char_t<'\0'>>; };
-    
-    template <typename T, size_t A, size_t O>
-    struct literal_to_tuple<string<T,A,O>> {
-        using LW = string<T,A,O>;
-        using type = tuple_concat_t<
-            std::tuple< char_t<LW::at(0)> >,
-            typename literal_to_tuple< typename LW::template substr_t<1, LW::length> >::type
-        >;
-    };
-    
-    template <typename LW>
-    using literal_to_tuple_t = typename literal_to_tuple<LW>::type;
-    
-    template <typename>
-    struct tuple_printer;
-
-    template <typename T>
-    struct tuple_printer<std::tuple<T>> {
-        static std::string const print() {
-            std::ostringstream stream;
-            stream << T::value;
-            return stream.str();
-        }
-    };
-
-    template <typename H, typename... T>
-    struct tuple_printer<std::tuple<H, T...>> {
-        static std::string const print() {
-            std::ostringstream stream;
-            stream << H::value << ",";
-            return stream.str() + tuple_printer<std::tuple<T...>>::print();
-        }
-    };
-    
-    template <typename>
-    struct tuple_to_literal;
-    
-    template <typename... CT>
-    struct tuple_to_literal<std::tuple<CT...>> {
-        struct literal {
-            static constexpr const char string[sizeof...(CT)] = { CT::value... };
-            static constexpr const char * const str() { return string; }
+        /// Definnes substring as new type
+        template <size_t from, size_t to>
+        struct substr {
+            static_assert(from <= to && to <= length, LOG_HEAD "invalid substring bounds");
+            using type = typename tuple_to_string<
+                typename subset_to_tuple<subset<string, from, to>>::type
+            >::type;
         };
-        using type = string<literal>;
+        
+        template <size_t from, size_t to>
+        using substr_t = typename substr<from, to>::type;
     };
     
-    template <typename... CT>
-    constexpr const char tuple_to_literal<std::tuple<CT...>>::literal::string[];
+    /// Provides access to subset of characters [Alpha, Omega)
+    template <typename S, size_t Alpha, size_t Omega>
+    struct subset {
+        static_assert(Alpha <= Omega, LOG_HEAD "invalid subset bounds");
+    
+        /// Provides base type wrapping full literal
+        using base = S;
+        using CharT = typename base::CharT;
+        using std_string = typename base::std_string;
+        
+        enum : size_t { alpha = Alpha }; // first character index
+        enum : size_t { omega = Omega }; // last character index (not inclusive)
+        enum : size_t { length = omega - alpha };
+        
+        /// Same as substr(), but without null-termination
+        template <size_t begin, size_t end>
+        using slice_t = subset<base, alpha + begin, alpha + end>;
+        
+        /// @returns character by index
+        constexpr static CharT const at(size_t idx) {
+            return base::str()[alpha + idx]; }
+        
+        static std_string to_string() {
+            return std_string(&(base::str()[alpha]), length); }
+    };
+    
+    /// Concatenates two strings into new type
+    template <typename S1, typename S2>
+    struct concat {
+        using type = tuple_to_string_t<tuple_concat_t<
+            tuple_reduce_t<string_to_tuple_t<S1>,0,S1::length>,
+            string_to_tuple_t<S2>
+        >>;
+    };
+    
+    template <typename S1, typename S2>
+    using concat_t = typename concat<S1,S2>::type;
+    
+    /// Checks two strings equality
+    template <typename S1, typename S2>
+    struct eq : std::integral_constant<bool,
+        std::is_same<string_to_tuple_t<S1>,string_to_tuple_t<S2>>::value> {};
 }
 
 namespace ctree {
