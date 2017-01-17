@@ -30,6 +30,7 @@ void ct_test() {
     
     {
         using namespace ctstr;
+        using ctstr::strlen;
         
         constexpr auto* str1 = "aababa";
         
@@ -50,7 +51,8 @@ void ct_test() {
         static_assert(count_substr(str1, pat3) == 2, "");
         static_assert(count_substr(str1, pat4) == 4, "");
         
-        constexpr auto* str2 = "abc*|d";
+        //constexpr auto str2 = "abc*|d"; // clang error, TODO: why
+        #define str2 "abc*|d"
         
         DEFINE_LITERAL(literal, str2);
         
@@ -78,6 +80,8 @@ void ct_test() {
         using unpacked = tuple_to_string_t<packed>;
         
         static_assert(eq<str,unpacked>::value, "");
+        
+        #undef str2
     }
     
     {
