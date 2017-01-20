@@ -7,7 +7,7 @@ Namespace/Set | POWAAAH!
 `ct` | Main ulility functions, tuple operations: `concat`, `transform`, `reduce`
 `ct::ctstr` | Compile-time string algorithms: `strlen`, `find_substr`, `count_substr`; literal-like `string` class with interface: `at`, `to_string`, `substr`, `concat`, `eq`, `string_to_tuple`, `tuple_to_string`
 `ct::math` | Compile-time arithmetics and algorithms: `array_eq`, `tuple_to_array`, `array_to_tuple`, `isqrt`, `smallest_divisor`, `greatest_divisor`, `gcd`; 2 implementations of prime factorization: naive (exponential complexity) and Pollard Rho algorithm (~sqrt complexity)
-`ct::ctree` | _Under construction_: compile-time AVL-tree engine
+`ct::tree` | _Under construction_: compile-time binary search tree, already available: `walk` (inorder tree walk), `search`, `root`
 `ct::cregex` | _Under construction_: compile-time regex-to-DFA engine
 
 ## Examples

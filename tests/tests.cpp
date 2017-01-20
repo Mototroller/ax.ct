@@ -277,11 +277,18 @@ void ct_test() {
         
         using t2 = leaf<num_t<5>>;
         using t3 = typename insert<t2, num_t<3>, num_comp>::type;
+        using t4 = typename insert<t3, num_t<7>, num_comp>::type;
+        
+        for(auto x : tuple_to_array_t<walk_t<t4>>::values) stdcout(x);
+        //static_assert(array_eq(tuple_to_array_t<walk_t<t4>>::values, {3UL,5UL,7UL}), "");
+        
+        /*/!
         stdcout(typeid(t3).name());
         stdcout(typeid(t3::LT).name());
         stdcout(typeid(t3::LT::parent).name());
         stdcout(typeid(t3::RT).name());
         stdcout(typeid(t3::parent).name());
+        //*/
     }
     
     {

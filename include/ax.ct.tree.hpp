@@ -103,21 +103,65 @@ using search_t = typename search<Node, T, CompTraits>::type;
 
 /// --- insert --- ///
 
-template <typename Node, typename T, typename Comp>
+template <typename Node>
+struct root;
+
+template <>
+struct root<NIL> { using type = NIL; };
+
+template <typename Node>
+struct root { using type = typename root<typename Node::parent>::type; };
+
+template <typename Node>
+using root_t = typename root<Node>::type;
+
+template <typename Node, typename T, typename Comp, typename Parent = NIL>
 struct insert;
 
-template <typename T, typename Comp>
-struct insert<NIL,T,Comp> { using type = leaf<T,NIL>; };
+template <typename T, typename C>
+struct insert<NIL,T,C,NIL> { using type = leaf<T,NIL>; };
 
-template <typename U, typename T, typename Comp>
-struct insert<leaf<U>,T,Comp> {
-    struct type;
-    using child = leaf<T,type>;
-    struct type : std::conditional<
-        Comp::template lt<T, U>::value,
-        node<T,child,NIL,NIL>,
-        node<T,NIL,child,NIL>
-    >::type {};
+template <typename T, typename Comp, typename Parent>
+struct insert<NIL,T,Comp,Parent> {
+    // Parent == node<U,LT,RT,PP>
+    
+    enum : bool { less = Comp::template lt<T, typename Parent::type>::value };
+    
+    struct child;
+    
+    using pLT = typename std::conditional<
+        less,
+        child,
+        typename Parent::RT
+    >::type;
+    
+    using pRT = typename std::conditional<
+        !less,
+        typename Parent::LT,
+        child
+    >::type;
+    
+    using new_parent = node<
+        T,
+        pLT,
+        pRT,
+        typename Parent::parent
+    >;
+    
+    struct child : leaf<T,new_parent> {};
+    
+    using type = root_t<new_parent>;
+};
+
+template <typename Node, typename T, typename Comp, typename>
+struct insert {
+    using subtree = typename std::conditional<
+        Comp::template lt<T, typename Node::type>::value,
+        typename Node::LT,
+        typename Node::RT
+    >::type;
+    
+    using type = typename insert<subtree,T,Comp,Node>::type;
 };
 
 } // tree
