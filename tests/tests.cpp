@@ -12,6 +12,14 @@ using namespace ax;
 template <typename T>
 struct unsignifier { using type = typename std::make_unsigned<T>::type; };
 
+template <typename Acc, typename T>
+struct sizeofs_summator {
+    struct type { enum : size_t { value = sizeof(T) + Acc::value }; };
+};
+
+struct array_holder { static constexpr const size_t values[] = {1,2,3}; };
+constexpr const size_t array_holder::values[];
+
 void ct_test() {
     using namespace ct;
     
@@ -27,6 +35,10 @@ void ct_test() {
         static_assert(std::is_same<tuple_push_t<t3,bool>, t4>::value, "");
         static_assert(std::is_same<tuple_transform_t<t4,2,4>, t5>::value, "");
         static_assert(std::is_same<tuple_transform_t<t1,0,std::tuple_size<t1>::value, unsignifier>, t6>::value, "");
+        
+        struct zeroacc { enum : size_t { value = 0 }; };
+        using reduced = tuple_reduce_t<t1, sizeofs_summator, zeroacc>;
+        static_assert(reduced::type::value == sizeof(char) + sizeof(int) + sizeof(long), "");
     }
     
     {
@@ -73,7 +85,6 @@ void ct_test() {
         static_assert(count_substr(str1, pat3) == 2, "");
         static_assert(count_substr(str1, pat4) == 4, "");
         
-        //constexpr auto str2 = "abc*|d"; // clang error, TODO: why
         #define str2 "abc*|d"
         
         DEFINE_LITERAL(literal, str2);
@@ -112,6 +123,23 @@ void ct_test() {
         static_assert( array_eq({1,2,3}, {1,2,3}), "");
         static_assert(!array_eq({1,2,3}, {1,2,4}), "");
         static_assert(!array_eq({1,2,3}, {1,2,3,4}), "");
+        static_assert(!array_eq({1,2,3}, {1,2}), "");
+        
+        {
+            using nums1 = std::tuple< num_t<1>, num_t<2>, num_t<3> >;
+            using nums2 = std::tuple< num_t<4>, num_t<5>, num_t<6> >;
+            using conc1 = tuple_concat_t<nums1,nums2>;
+            
+            static_assert(array_eq(tuple_to_array_t<nums1>::values, {1UL,2UL,3UL}), "");
+            static_assert(array_eq(tuple_to_array_t<nums2>::values, {4UL,5UL,6UL}), "");
+            static_assert(array_eq(tuple_to_array_t<conc1>::values, {1UL,2UL,3UL,4UL,5UL,6UL}), "");
+            
+            using conv1 = array_to_tuple_t<array_holder>;
+            using conv2 = array_to_tuple_t<tuple_to_array_t<nums2>>;
+            
+            static_assert(std::is_same<nums1,conv1>::value, "");
+            static_assert(std::is_same<nums2,conv2>::value, "");
+        }
         
         static_assert(isqrt(0) == 0, "");
         static_assert(isqrt(1) == 1, "");
@@ -165,8 +193,25 @@ void ct_test() {
         static_assert(array_eq(prime_factors<15015>::values, {13UL,11UL,7UL,5UL,3UL}), "");
         static_assert(array_eq(prime_factors<811>::values, {811UL}), "");
         
+        static_assert(std::is_same<
+            array_to_tuple_t<prime_factors<811>>,
+            std::tuple<num_t<811>>>::value,
+        "");
+        
+        static_assert(
+            std::is_same<array_to_tuple_t<prime_factors<125>>,
+            std::tuple<num_t<5>,num_t<5>,num_t<5>>>::value,
+        "");
+        
         {
+            /// Pollard's Rho factorization
+            using namespace rho;
             using rho::prime_factors;
+            
+            static_assert(divisor<2>::value == 2, "");
+            static_assert(divisor<3>::value == 3, "");
+            static_assert(divisor<13>::value == 13, "");
+            static_assert(divisor<20011>::value == 20011, "");
             
             static_assert(array_eq(prime_factors<4>::values, {2UL,2UL}), "");
             static_assert(array_eq(prime_factors<7>::values, {7UL}), "");

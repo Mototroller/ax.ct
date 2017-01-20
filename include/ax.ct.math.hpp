@@ -10,6 +10,10 @@
 
 namespace ax { namespace ct { namespace math {
 
+/// @returns array size
+template <typename T, size_t N>
+constexpr size_t array_size(T const (&)[N]) { return N; }
+
 /// Number <=> type
 template<typename NumT, NumT number>
 struct basic_num_t {
@@ -17,14 +21,72 @@ struct basic_num_t {
     enum : number_type { value = number };
 };
 
+/// Alias for size_t numbers
 template <size_t I>
 using num_t = basic_num_t<size_t, I>;
+
+
+/// --- tuple_to_array --- ///
+
+/// Constructs new type containing array of numbers from tuple of number classes
+template <typename T>
+struct tuple_to_array;
+
+template <typename... Num>
+struct tuple_to_array<std::tuple<Num...>> {
+private:
+    using num_list = std::tuple<Num...>;
+    using NumT = typename std::tuple_element<0, std::tuple<Num...>>::type::number_type;
+public:
+    struct type { static constexpr const NumT values[] = { Num::value... }; };
+};
+
+template <typename... Num>
+constexpr const typename tuple_to_array<std::tuple<Num...>>::NumT tuple_to_array<std::tuple<Num...>>::type::values[];
+
+template <typename T>
+using tuple_to_array_t = typename tuple_to_array<T>::type;
+
+
+/// --- array_to_tuple --- ///
+
+/// Constructs tuple of number classes from array (T must contain constexpr "values" array)
+template <typename T>
+struct array_to_tuple;
+
+template <typename T, size_t Left>
+struct array_to_tuple_impl;
+
+template <typename T>
+struct array_to_tuple_impl<T,0> {
+    using type = std::tuple<>; };
+
+template <typename T, size_t Left>
+struct array_to_tuple_impl {
+private:
+    using NumT = typename std::decay<decltype(T::values[0])>::type;
+public:
+    using type = tuple_push_t<
+        typename array_to_tuple_impl<T,Left-1>::type,
+        basic_num_t<NumT, T::values[Left-1]>
+    >;
+};
+
+template <typename T>
+struct array_to_tuple {
+    using type = typename array_to_tuple_impl<T,array_size(T::values)>::type; };
+
+template <typename T>
+using array_to_tuple_t = typename array_to_tuple<T>::type;
+
+
+/// --- Math --- ///
 
 template <typename T>
 constexpr bool array_eq_impl(T const* p1, T const* p2, size_t N) {
     return  (N == 0) || ((*p1 == *p2) && array_eq_impl(p1 + 1, p2 + 1, N - 1)); }
 
-/// Compares two compile-time arrays by element
+/// Compares two arrays by element. Requires same type T for both arrays elements.
 template <typename T, size_t N1, size_t N2>
 constexpr bool array_eq(T const (&arr1)[N1], T const (&arr2)[N2]) {
     return (N1 == N2) && array_eq_impl(&arr1[0], &arr2[0], N1); }
@@ -35,11 +97,11 @@ constexpr size_t isqrt_impl(size_t n, size_t x0) {
             isqrt_impl(n, (x0 + n/x0)/2);
 }
 
-/// @returns compile-time integer square root, O(sqrt(n))
+/// @returns compile-time integer square root (Newton algorithm), O(sqrt(n))
 constexpr size_t isqrt(size_t n) {
     return isqrt_impl(n, n); }
 
-/// @returns smallest divisor (value >= from), O(n)
+/// @returns smallest divisor (value >= from), O(n). Assuming num >= 2.
 constexpr size_t smallest_divisor(size_t num, size_t from = 2) {
     return  num % from == 0 ? from :
             from > num/2    ? num :
@@ -123,9 +185,11 @@ namespace rho {
     
     template <size_t n, size_t rounds>
     struct divisor {
+    private:
         constexpr static bool   even  = (n % 2 == 0);
         constexpr static size_t prev  = even ? n : divisor<n, rounds-1>::value;
         constexpr static size_t xy    = even ? 2 : LCG::random(rounds, 2, n - 1);
+    public:
         constexpr static size_t value = even ? 2 :
                                         (prev != n) ? prev : calc_d<n, xy, xy, 1>::value;
     };
@@ -139,8 +203,10 @@ namespace rho {
     
     template <size_t n, size_t div1>
     struct prime_divisor {
+    private:
         constexpr static size_t div2 = n/div1;
         constexpr static size_t minval = div1 < div2 ? div1 : div2;
+    public:
         constexpr static size_t value = prime_divisor<minval>::value;
     };
     

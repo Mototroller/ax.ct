@@ -241,11 +241,12 @@ namespace ctstr {
 
     template <typename... CT>
     struct tuple_to_string<std::tuple<CT...>> {
+    private:
         using char_list = std::tuple<CT...>;
         using CharT = typename std::tuple_element<0, char_list>::type::char_type;
         static constexpr const CharT literal[sizeof...(CT)] = { CT::value... };
-        
         DEFINE_LITERAL(wrapper, literal);
+    public:
         using type = string<wrapper>;
     };
 
