@@ -32,7 +32,7 @@ struct tuple_push;
 template <typename Tuple, typename T>
 using tuple_push_t = typename tuple_push<Tuple,T>::type;
 
-/// Contains non the same type of template parameter
+/// Contains the same type of template parameter
 template <typename T>
 struct identity { using type = T; };
 
@@ -66,7 +66,7 @@ using tuple_transform_t = typename tuple_transform<Source,From,To,Mod,Acc>::type
 /**
  * Constructs new tuple from results of applying Fun(Acc,Type) to every Type From Source.
  * @arg Source  - tuple to be reduced
- * @arg Fun     - type modifier, instantiates as Fun<Acc,Type>, must contain "type" member
+ * @arg Fun     - type modifier, instantiates as Fun<Acc,Type>, must contain "type" definition
  * @arg Acc     - accumulator tuple, empty (std::tuple<>) by default
  */
 template <

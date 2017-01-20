@@ -25,6 +25,12 @@ struct basic_num_t {
 template <size_t I>
 using num_t = basic_num_t<size_t, I>;
 
+/// "Less" num types comparator
+struct num_less {
+    template <typename U, typename V>
+    struct lt : std::integral_constant<bool, (U::value < V::value)> {};
+};
+
 
 /// --- tuple_to_array --- ///
 

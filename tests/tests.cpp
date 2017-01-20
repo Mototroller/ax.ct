@@ -6,6 +6,7 @@
 #include <ax.ct.hpp>
 #include <ax.ct.ctstr.hpp>
 #include <ax.ct.math.hpp>
+#include <ax.ct.tree.hpp>
 
 using namespace ax;
 
@@ -232,6 +233,55 @@ void ct_test() {
             std::multiset<size_t> res2 = {2,2,13,31,5};
             LIGHT_TEST(fac2 == res2);
         }
+    }
+    
+    {
+        using namespace tree;
+        using namespace math;
+        
+        using t1 = node<
+            num_t<5>,
+            node<
+                num_t<3>,
+                leaf<num_t<2>>,
+                leaf<num_t<5>>
+            >,
+            node<
+                num_t<7>,
+                NIL,
+                leaf<num_t<8>>
+            >
+        >;
+        
+        using vals1 = tuple_to_array_t<walk_t<t1>>;
+        static_assert(array_eq(vals1::values, {2UL,3UL,5UL,5UL,7UL,8UL}), "");
+        
+        using found1 = search_t<t1, double, sizeof_comp>;
+        using found2 = search_t<t1, num_t<5>, sizeof_comp>;
+        
+        static_assert(std::is_same<found1, NIL>::value, "");
+        static_assert(std::is_same<found2, t1>::value, "");
+        
+        struct num_comp : eq_traits<num_less> {};
+        
+        //using found3 = search_t<t1, NIL, num_comp>; // must not fap!
+        using found4 = search_t<t1, num_t<5>, num_comp>;
+        using found5 = search_t<t1, num_t<8>, num_comp>;
+        using found6 = search_t<t1, num_t<7>, num_comp>;
+        
+        static_assert(std::is_same<found4, t1>::value, "");
+        static_assert(std::is_same<found5, leaf<num_t<8>>>::value, "");
+        
+        static_assert(!std::is_same<found6, leaf<num_t<7>>>::value, "");
+        static_assert(std::is_same<found6, node<num_t<7>,NIL,leaf<num_t<8>>>>::value, ""); // subtree
+        
+        using t2 = leaf<num_t<5>>;
+        using t3 = typename insert<t2, num_t<3>, num_comp>::type;
+        stdcout(typeid(t3).name());
+        stdcout(typeid(t3::LT).name());
+        stdcout(typeid(t3::LT::parent).name());
+        stdcout(typeid(t3::RT).name());
+        stdcout(typeid(t3::parent).name());
     }
     
     {
