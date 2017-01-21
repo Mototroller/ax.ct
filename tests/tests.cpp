@@ -18,6 +18,9 @@ struct sizeofs_summator {
     struct type { enum : size_t { value = sizeof(T) + Acc::value }; };
 };
 
+template <typename Acc, typename T>
+struct concatenator { using type = ct::tuple_push_t<Acc, T>; };
+
 struct array_holder { static constexpr const size_t values[] = {1,2,3}; };
 constexpr const size_t array_holder::values[];
 
@@ -40,6 +43,9 @@ void ct_test() {
         struct zeroacc { enum : size_t { value = 0 }; };
         using reduced = tuple_reduce_t<t1, sizeofs_summator, zeroacc>;
         static_assert(reduced::type::value == sizeof(char) + sizeof(int) + sizeof(long), "");
+        
+        using concatenated = tuple_reduce_t<t2, concatenator, t1>;
+        static_assert(std::is_same<concatenated, t3>::value, "");
     }
     
     {
@@ -244,7 +250,7 @@ void ct_test() {
             node<
                 num_t<3>,
                 leaf<num_t<2>>,
-                leaf<num_t<5>>
+                leaf<num_t<4>>
             >,
             node<
                 num_t<7>,
@@ -253,8 +259,12 @@ void ct_test() {
             >
         >;
         
+        static_assert(height<t1>::value == 3, "");
+        
+        //stdcout("\n"); for(auto x : tuple_to_array_t<walk_t<t1>>::values) stdcout(x);
+        
         using vals1 = tuple_to_array_t<walk_t<t1>>;
-        static_assert(array_eq(vals1::values, {2UL,3UL,5UL,5UL,7UL,8UL}), "");
+        static_assert(array_eq(vals1::values, {2UL,3UL,4UL,5UL,7UL,8UL}), "");
         
         using found1 = search_t<t1, double, sizeof_comp>;
         using found2 = search_t<t1, num_t<5>, sizeof_comp>;
@@ -265,6 +275,9 @@ void ct_test() {
         struct num_comp : eq_traits<num_less> {};
         
         //using found3 = search_t<t1, NIL, num_comp>; // must not fap!
+        using found3 = search_t<NIL, num_t<0>, num_comp>;
+        static_assert(std::is_same<found3, NIL>::value, "");
+        
         using found4 = search_t<t1, num_t<5>, num_comp>;
         using found5 = search_t<t1, num_t<8>, num_comp>;
         using found6 = search_t<t1, num_t<7>, num_comp>;
@@ -275,20 +288,48 @@ void ct_test() {
         static_assert(!std::is_same<found6, leaf<num_t<7>>>::value, "");
         static_assert(std::is_same<found6, node<num_t<7>,NIL,leaf<num_t<8>>>>::value, ""); // subtree
         
-        using t2 = leaf<num_t<5>>;
-        using t3 = typename insert<t2, num_t<3>, num_comp>::type;
-        using t4 = typename insert<t3, num_t<7>, num_comp>::type;
+        static_assert(std::is_same<typename search<t1, num_t<7>, num_comp>::tree, t1>::value, "");
         
-        for(auto x : tuple_to_array_t<walk_t<t4>>::values) stdcout(x);
-        //static_assert(array_eq(tuple_to_array_t<walk_t<t4>>::values, {3UL,5UL,7UL}), "");
+        static_assert(std::is_same<parent_of_t<t1, t1    >, NIL   >::value, "");
+        static_assert(std::is_same<parent_of_t<t1, found2>, NIL   >::value, "");
+        static_assert(std::is_same<parent_of_t<t1, found5>, found6>::value, "");
+        static_assert(std::is_same<parent_of_t<t1, found6>, t1    >::value, "");
         
-        /*/!
-        stdcout(typeid(t3).name());
-        stdcout(typeid(t3::LT).name());
-        stdcout(typeid(t3::LT::parent).name());
-        stdcout(typeid(t3::RT).name());
-        stdcout(typeid(t3::parent).name());
-        //*/
+        using t2 = leaf<num_t<5>, num_comp>;
+        using t3 = insert_t<t2, num_t<3>>;
+        using t4 = insert_t<t3, num_t<7>>;
+        
+        static_assert(height<t4>::value == 2, "");
+        static_assert(array_eq(tuple_to_array_t<walk_t<t4>>::values, {3UL,5UL,7UL}), "");
+        
+        using t5 = insert_t<insert_t<insert_t<t4, num_t<2>>, num_t<4>>, num_t<8>>;
+        static_assert(array_eq(tuple_to_array_t<walk_t<t5>>::values, {2UL,3UL,4UL,5UL,7UL,8UL}), "");
+        
+        // Debug representation
+        stdcout(print<t5, value_printer>::str());
+        
+        static_assert(!std::is_same<t5, t1>::value, ""); // cause of different initial comparators
+        static_assert( tree_eq<t1,t1>::value, ""); // inner type-by-type comparing
+        static_assert(!tree_eq<t1,t2>::value, "");
+        static_assert( tree_eq<t1,t5>::value, "");
+        
+        using t6 = insert_tuple_t<NIL, std::tuple<
+            num_t<5>,
+            num_t<7>,
+            num_t<3>,
+            num_t<4>,
+            num_t<2>,
+            num_t<8>
+        >, num_comp>;
+        
+        static_assert(std::is_same<t5, t6>::value, "");
+        static_assert(tree_eq<t1,t6>::value, "");
+        
+        using lwalk = level_walk_t<t6>;
+        static_assert(array_eq(tuple_to_array_t<lwalk>::values, {5UL,3UL,7UL,2UL,4UL,8UL}), "");
+        
+        static_assert(array_eq(tuple_to_array_t<collect_level_t<t6, 1>>::values, {3UL,7UL}), "");
+        static_assert(array_eq(tuple_to_array_t<collect_level_t<t6, 2>>::values, {2UL,4UL,8UL}), "");
     }
     
     {

@@ -67,7 +67,7 @@ using tuple_transform_t = typename tuple_transform<Source,From,To,Mod,Acc>::type
  * Constructs new tuple from results of applying Fun(Acc,Type) to every Type From Source.
  * @arg Source  - tuple to be reduced
  * @arg Fun     - type modifier, instantiates as Fun<Acc,Type>, must contain "type" definition
- * @arg Acc     - accumulator tuple, empty (std::tuple<>) by default
+ * @arg Acc     - accumulator type, empty tuple (std::tuple<>) by default
  */
 template <
     class Source,
