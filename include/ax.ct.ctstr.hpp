@@ -19,8 +19,8 @@ namespace ctstr {
 
     /// Explicitly defined constexpr strlen()
     template <typename Char>
-    constexpr size_t strlen(Char const* str, size_t acc = 0) {
-        return str[acc] == Char{'\0'} ? acc : strlen(str, acc + 1); }
+    constexpr size_t strlen(Char const* str) {
+        return *str == Char{'\0'} ? 0 : 1 + strlen(str + 1); }
 
     template <typename Char>
     constexpr size_t find_substr_impl(
@@ -257,6 +257,29 @@ namespace ctstr {
 
 /// Experimental: compile time regex-to-DFA
 namespace cregex {
+    
+    namespace ctree {
+        template <typename L, typename T, typename R>
+        struct bintree {
+            using node  = T;
+            using left  = L;
+            using right = R;
+        };
+        
+        template <typename T>
+        using leaf = bintree<void, T, void>;
+        
+        template <typename Tree>
+        struct height;
+        
+        template <typename T>
+        struct height<leaf<T>> : std::integral_constant<size_t, 1> {};
+        
+        template <typename L, typename T, typename R>
+        struct height<bintree<L,T,R>> : std::integral_constant<size_t,
+            1 + max(height<L>::value, height<R>::value)
+        > {};
+    }
     
     using namespace ctstr;
     

@@ -18,19 +18,34 @@ constexpr T min(T a, T b) { return a > b ? b : a; }
 template <typename T>
 constexpr T max(T a, T b) { return a < b ? b : a; }
 
-/// Concatenates two tuples
-template <typename U, typename V>
+
+/// Concatenates two tuple-like classes
+template <class U, class V>
 struct tuple_concat;
+
+template <
+    template <class...> class T,
+    class... Alist,
+    class... Blist
+> struct tuple_concat<T<Alist...>, T<Blist...>> { using type = T<Alist..., Blist...>; };
 
 template <typename U, typename V>
 using tuple_concat_t = typename tuple_concat<U,V>::type;
 
-/// Pushes type to tuple
-template <typename Tuple, typename T>
+
+/// Pushes type to tuple-like class
+template <class Tuple, class T>
 struct tuple_push;
+
+template <
+    template <class...> class Tuple,
+    class... Args,
+    class T
+> struct tuple_push<Tuple<Args...>,T> { using type = Tuple<Args..., T>; };
 
 template <typename Tuple, typename T>
 using tuple_push_t = typename tuple_push<Tuple,T>::type;
+
 
 /// Contains the same type of template parameter
 template <typename T>
@@ -38,6 +53,7 @@ struct identity { using type = T; };
 
 template <typename T>
 using identity_t = typename identity<T>::type;
+
 
 /**
  * Constructs new tuple by range [From,To) from Source, applies Mod to every element type.
@@ -56,12 +72,27 @@ template <
     typename Acc = std::tuple<>
 > struct tuple_transform;
 
+template <typename Source, size_t I, template <class> class Mod, typename Acc>
+struct tuple_transform<Source,I,I,Mod,Acc> { using type = Acc; };
+
+template <typename Source, size_t A, size_t B, template <class> class Mod, typename Acc>
+struct tuple_transform {
+    using type = typename tuple_transform<
+        Source, A + 1, B, Mod,
+        tuple_push_t<
+            Acc,
+            typename Mod<typename std::tuple_element<A,Source>::type>::type
+        >
+    >::type;
+};
+
 template <
     typename Source, size_t From, size_t To,
     template <class> class Mod = identity,
     typename Acc = std::tuple<>
 >
 using tuple_transform_t = typename tuple_transform<Source,From,To,Mod,Acc>::type;
+
 
 /**
  * Constructs new tuple from results of applying Fun(Acc,Type) to every Type From Source.
@@ -75,6 +106,17 @@ template <
     class Acc = std::tuple<>
 > struct tuple_reduce;
 
+template <template <class,class> class Fun, class Acc>
+struct tuple_reduce<std::tuple<>,Fun,Acc> { using type = Acc; };
+
+template <template <class,class> class Fun, class Acc, typename Head, typename... Tail>
+struct tuple_reduce<std::tuple<Head,Tail...>,Fun,Acc> {
+private:
+    using Acc_ = typename Fun<Acc,Head>::type;
+public:
+    using type = typename tuple_reduce<std::tuple<Tail...>,Fun,Acc_>::type;
+};
+
 template <
     class Source,
     template <class,class> class Fun,
@@ -82,32 +124,8 @@ template <
 >
 using tuple_reduce_t = typename tuple_reduce<Source,Fun,Acc>::type;
 
-namespace ctree {
-    template <typename L, typename T, typename R>
-    struct bintree {
-        using node  = T;
-        using left  = L;
-        using right = R;
-    };
-    
-    template <typename T>
-    using leaf = bintree<void, T, void>;
-    
-    template <typename Tree>
-    struct height;
-    
-    template <typename T>
-    struct height<leaf<T>> : std::integral_constant<size_t, 1> {};
-    
-    template <typename L, typename T, typename R>
-    struct height<bintree<L,T,R>> : std::integral_constant<size_t,
-        1 + max(height<L>::value, height<R>::value)
-    > {};
-}
 
 } // ct
 } // ax
-
-#include <ax.ct_impl.hpp>
 
 #undef LOG_HEAD

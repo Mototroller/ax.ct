@@ -49,27 +49,6 @@ void ct_test() {
     }
     
     {
-        using namespace ctree;
-        
-        //|       c      |
-        //|      / \     |
-        //|     c   c    |
-        //|    / \       |
-        //|   c   c      |
-        using tree = bintree<
-            bintree<
-                leaf<char>,
-                char,
-                leaf<char>
-            >,
-            char,
-            leaf<char>
-        >;
-        
-        static_assert(height<tree>::value == 3, "");
-    }
-    
-    {
         using namespace ctstr;
         using ctstr::strlen;
         

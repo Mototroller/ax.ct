@@ -100,24 +100,24 @@ struct height {
 /// --- walk --- ///
 
 /// Constructs tuple of ordered tree elements (inorder tree traversal)
-template <typename Node, typename Acc = std::tuple<>>
+template <typename Node>
 struct walk;
 
-template <typename Acc>
-struct walk<NIL,Acc> { using type = Acc; };
+template <>
+struct walk<NIL> { using type = std::tuple<>; };
 
-template <typename Node, typename Acc>
+template <typename Node>
 struct walk {
 private:
-    using accL = typename walk<typename Node::LT, Acc>::type;
+    using accL = typename walk<typename Node::LT>::type;
     using accX = tuple_push_t<accL, typename Node::type>;
-    using accR = typename walk<typename Node::RT, accX>::type;
+    using accR = tuple_concat_t<accX, typename walk<typename Node::RT>::type>;
 public:
     using type = accR;
 };
 
-template <typename Node, typename Acc = std::tuple<>>
-using walk_t = typename walk<Node, Acc>::type;
+template <typename Node>
+using walk_t = typename walk<Node>::type;
 
 
 /// Breadth-first traversal: constructs tuple of tree elements level-by-level
@@ -287,8 +287,7 @@ template <typename Tree, typename T, typename Comp = typename Tree::comp>
 struct insert;
 
 template <typename T, typename Comp>
-struct insert<NIL,T,Comp> {
-    using type = leaf<T,Comp>; };
+struct insert<NIL,T,Comp> { using type = leaf<T,Comp>; };
 
 template <typename Node, typename T, typename Comp>
 struct insert {
