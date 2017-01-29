@@ -24,6 +24,9 @@ struct concatenator { using type = ct::tuple_push_t<Acc, T>; };
 struct array_holder { static constexpr const size_t values[] = {1,2,3}; };
 constexpr const size_t array_holder::values[];
 
+struct str_func { constexpr static char const* str() { return "12345"; } };
+struct str_data { constexpr static auto str = str_func::str(); };
+
 void ct_test() {
     using namespace ct;
     
@@ -101,6 +104,17 @@ void ct_test() {
         static_assert(eq<str,unpacked>::value, "");
         
         #undef str2
+        
+        static_assert(strlen(str_func::str()) == 5, "");
+        static_assert(strlen(str_data::str) == 5, "");
+        
+        DEFINE_LITERAL(literal_from_func, str_func::str());
+        DEFINE_LITERAL(literal_from_data, str_data::str);
+        
+        using string_from_func = string<literal_from_func>;
+        using string_from_data = string<literal_from_data>;
+        
+        static_assert(eq<string_from_func, string_from_data>::value, "");
     }
     
     {

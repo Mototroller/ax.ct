@@ -267,11 +267,11 @@ struct search {
     using type = typename std::conditional<
         Comp::template eq<T, typename Node::type>::value,
         Node,
-        typename std::conditional<
+        typename search<typename std::conditional<
             Comp::template lt<T, typename Node::type>::value,
-            typename search<typename Node::LT, T, Comp>::type,
-            typename search<typename Node::RT, T, Comp>::type
-        >::type
+            typename Node::LT,
+            typename Node::RT
+        >::type, T, Comp>::type
     >::type;
     
     using tree = Node;
@@ -291,15 +291,29 @@ struct insert<NIL,T,Comp> { using type = leaf<T,Comp>; };
 
 template <typename Node, typename T, typename Comp>
 struct insert {
+private:
+    enum : bool { is_left = Node::comp::template lt<T, typename Node::type>::value };
+    
+    using modified_subtree = typename insert<
+        typename std::conditional<
+            is_left,
+            typename Node::LT,
+            typename Node::RT
+        >::type,
+        T,
+        Comp
+    >::type;
+    
+public:
     using type = typename std::conditional<
-        Node::comp::template lt<T, typename Node::type>::value,
+        is_left,
         node<typename Node::type,
-            typename insert<typename Node::LT, T, Comp>::type,
+            modified_subtree,
             typename Node::RT,
         Comp>,
         node<typename Node::type,
             typename Node::LT,
-            typename insert<typename Node::RT, T, Comp>::type,
+            modified_subtree,
         Comp>
     >::type;
 };

@@ -252,6 +252,8 @@ namespace ctstr {
 
     template <typename... CT>
     constexpr const typename tuple_to_string<std::tuple<CT...>>::CharT tuple_to_string<std::tuple<CT...>>::literal[];
+    
+    
 
 } // ctstr
 
