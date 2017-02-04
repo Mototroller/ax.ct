@@ -410,79 +410,59 @@ struct remove<NIL,T> { using type = NIL; };
 
 template <typename Tree, typename T>
 struct remove {
-//private:
+private:
     enum : bool { is_less   = Tree::comp::template lt<T, typename Tree::type>::value };
     enum : bool { is_equal  = Tree::comp::template eq<T, typename Tree::type>::value };
     
+    enum : size_t { children = children_amount<Tree>::value };
+    
     using key = typename min_node_t<
         typename std::conditional<
-            is_equal && children_amount<Tree>::value == 2,
+            is_equal && children == 2,
             typename Tree::RT,
             leaf<typename Tree::type, typename Tree::comp>
         >::type
     >::type;
     
-    
-    /// Unreachable
-    static leaf<T, typename Tree::comp> // type?
-    min_arg_dispatch(...);
-    
-    template <typename Bush>
-    static typename std::enable_if<sizeof(typename Bush::RT::type), typename Bush::RT>::type
-    min_arg_dispatch(Bush&&);
-    
-    using minimal_right_node = min_node_t<decltype(min_arg_dispatch(std::declval<Tree>()))>;
-    
-    
-    // result = less ? remove(left) : greater ? remove(right) : STOP;
-    using modified_subtree = typename remove<
+    using recursive_call = typename remove<
         typename std::conditional<
             is_less,
             typename Tree::LT,
-            typename Tree::RT
+            typename std::conditional<
+                !is_equal || children == 2,
+                typename Tree::RT,
+                NIL
+            >::type
         >::type,
         typename std::conditional<
             is_equal,
-            typename minimal_right_node::type,
+            key,
             T
         >::type
     >::type;
-    
     
     static typename Tree::RT
     root_dispatcher(...);
     
     template <typename Bush>
-    static typename Bush::LT
+    static typename std::enable_if<sizeof(typename Bush::LT::type), typename Bush::LT>::type
     root_dispatcher(Bush&&);
-    
-    
-    static typename Tree::type
-    key_dispatcher(...);
-    
-    template <typename Bush>
-    static typename min_node_t<typename Bush::RT>::type
-    key_dispatcher(Bush&&);
     
 public:
     using type = typename std::conditional<
-        is_equal && children_amount<Tree>::value == 1,
+        is_equal && (children < 2),
         decltype(root_dispatcher(std::declval<Tree>())),
         node<
-            typename std::conditional<
-                is_equal,
-                typename minimal_right_node::type,
-                typename Tree::type
-            >::type,
+            key,
             typename std::conditional<
                 is_less,
-                modified_subtree,
+                recursive_call,
                 typename Tree::LT
             >::type,
             typename std::conditional<
-                is_less,
-                typename Tree::RT,
-                modified_subtree
+                !is_less,
+                recursive_call,
+                typename Tree::RT
             >::type,
             typename Tree::comp
         >
@@ -492,6 +472,18 @@ public:
 template <typename Tree, typename T>
 using remove_t = typename remove<Tree, T>::type;
 
+/// Removes batch (tuple) of types from Tree
+template <typename Tree, typename Tuple>
+struct remove_tuple {
+private:
+    template <typename Acc, typename T>
+    struct remover { using type = remove_t<Acc, T>; };
+public:
+    using type = tuple_reduce_t<Tuple, remover, Tree>;
+};
+
+template <typename Tree, typename Tuple>
+using remove_tuple_t = typename remove_tuple<Tree,Tuple>::type;
 
 } // tree
 } // ct

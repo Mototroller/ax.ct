@@ -335,12 +335,25 @@ void ct_test() {
         static_assert(children_amount<leaf<num_t<999>, num_comp>>::value == 0, "");
         static_assert(children_amount<found6>::value == 1, "");
         
-        using rem1 = remove_t<t6, num_t<3>>;
-        //using rem1 = remove_t<leaf<num_t<2>, num_comp>, num_t<8>>;
+        using rem1 = remove_tuple_t<t6, std::tuple<
+            num_t<7>,
+            num_t<3>,
+            num_t<4>,
+            num_t<2>,
+            num_t<8>
+        >>;
+        static_assert(std::is_same<t2, rem1>::value, "");
         
-        stdcout("\n");
-        stdcout(print<rem1, value_printer>::str());
-        stdcout(typeid(typename remove<t6, num_t<5>>::minimal_right_node::type).name());
+        using rem2 = remove_tuple_t<t6, std::tuple<
+            num_t<4>,
+            num_t<2>,
+            num_t<3>,
+            num_t<99>,
+            num_t<3>,
+            num_t<7>,
+            num_t<8>
+        >>;
+        static_assert(std::is_same<rem2, rem1>::value, "");
     }
     
     {
