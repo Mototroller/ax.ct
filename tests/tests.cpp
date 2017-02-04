@@ -323,6 +323,24 @@ void ct_test() {
         
         static_assert(array_eq(tuple_to_array_t<collect_level_t<t6, 1>>::values, {3UL,7UL}), "");
         static_assert(array_eq(tuple_to_array_t<collect_level_t<t6, 2>>::values, {2UL,4UL,8UL}), "");
+        
+        using min1 = min_node_t<t6>;
+        using min2 = min_node_t<typename t6::RT>;
+        static_assert(std::is_same<min1, leaf<num_t<2>, num_comp>>::value, "");
+        static_assert(std::is_same<min2, typename t6::RT>::value, "");
+        
+        using tree::remove;
+        
+        static_assert(children_amount<t6>::value == 2, "");
+        static_assert(children_amount<leaf<num_t<999>, num_comp>>::value == 0, "");
+        static_assert(children_amount<found6>::value == 1, "");
+        
+        using rem1 = remove_t<t6, num_t<3>>;
+        //using rem1 = remove_t<leaf<num_t<2>, num_comp>, num_t<8>>;
+        
+        stdcout("\n");
+        stdcout(print<rem1, value_printer>::str());
+        stdcout(typeid(typename remove<t6, num_t<5>>::minimal_right_node::type).name());
     }
     
     {

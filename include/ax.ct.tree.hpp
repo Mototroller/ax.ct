@@ -60,7 +60,7 @@ template <typename T, typename C = sizeof_comp>
 using leaf = node<T,NIL,NIL,C>;
 
 
-/// --- equality and size --- ///
+/// --- equality and size, O(n) --- ///
 
 /// Compares two trees by element
 template <typename U, typename V>
@@ -97,7 +97,7 @@ struct height {
 };
 
 
-/// --- walk --- ///
+/// --- walk, O(n) --- ///
 
 /// Constructs tuple of ordered tree elements (inorder tree traversal)
 template <typename Node>
@@ -169,12 +169,12 @@ struct level_walk {
 template <typename Node>
 using level_walk_t = typename level_walk<Node>::type;
 
-/// Constructs tuple of types by level
+/// Constructs tuple of types by level, O(nh)
 template <typename Node, size_t level>
 using collect_level_t = typename level_walk_impl::collect_level<Node,level>::type;
 
 
-/// --- print --- ///
+/// --- print, O(n) --- ///
 
 struct value_printer {
     template <typename T>
@@ -241,7 +241,7 @@ public:
 };
 
 
-/// --- search --- ///
+/// --- search, O(h) --- ///
 
 /**
  * Finds node containing type equal to T in terms of comparators from Comp.
@@ -281,7 +281,7 @@ template <typename Node, typename T, typename Comp = typename Node::comp>
 using search_t = typename search<Node, T, Comp>::type;
 
 
-/// --- insert --- ///
+/// --- insert, O(h) --- ///
 
 template <typename Tree, typename T, typename Comp = typename Tree::comp>
 struct insert;
@@ -305,17 +305,20 @@ private:
     >::type;
     
 public:
-    using type = typename std::conditional<
-        is_left,
-        node<typename Node::type,
+    using type = node<
+        typename Node::type,
+        typename std::conditional<
+            is_left,
             modified_subtree,
+            typename Node::LT
+        >::type,
+        typename std::conditional<
+            is_left,
             typename Node::RT,
-        Comp>,
-        node<typename Node::type,
-            typename Node::LT,
-            modified_subtree,
-        Comp>
-    >::type;
+            modified_subtree
+        >::type,
+        Comp
+    >;
 };
 
 template <typename Tree, typename T, typename Comp = typename Tree::comp>
@@ -337,7 +340,7 @@ using insert_tuple_t = typename insert_tuple<Tree,Tuple,Comp>::type;
 
 /// --- delete --- ///
 
-/// Contains parent node of given Subtree inside Tree
+/// Contains parent node of given Subtree inside Tree, O(h)
 template <typename Tree, typename Subtree, typename Prev = NIL>
 struct parent_of;
 
@@ -349,15 +352,145 @@ struct parent_of<Tree,Tree,Prev> { using type = Prev; };
 
 template <typename Tree, typename Subtree, typename Prev>
 struct parent_of {
-    using type = typename std::conditional<
-        Tree::comp::template lt<typename Subtree::type, typename Tree::type>::value,
-        typename parent_of<typename Tree::LT, Subtree, Tree>::type,
-        typename parent_of<typename Tree::RT, Subtree, Tree>::type
+    using type = typename parent_of<
+        typename std::conditional<
+            Tree::comp::template lt<typename Subtree::type, typename Tree::type>::value,
+            typename Tree::LT,
+            typename Tree::RT
+        >::type,
+        Subtree,
+        Tree
     >::type;
 };
 
 template <typename Tree, typename Subtree, typename Prev = NIL>
 using parent_of_t = typename parent_of<Tree,Subtree,Prev>::type;
+
+
+/// Contains number of child nodes for given Tree, O(1)
+template <typename Tree>
+struct children_amount;
+
+template <>
+struct children_amount<NIL> : std::integral_constant<size_t, 0> {};
+
+template <typename T, typename Comp>
+struct children_amount<node<T,NIL,NIL,Comp>> : std::integral_constant<size_t, 0> {};
+
+template <typename T, typename U, typename Comp>
+struct children_amount<node<T,U,NIL,Comp>> : std::integral_constant<size_t, 1> {};
+
+template <typename T, typename U, typename Comp>
+struct children_amount<node<T,NIL,U,Comp>> : std::integral_constant<size_t, 1> {};
+
+template <typename T, typename U, typename V, typename Comp>
+struct children_amount<node<T,U,V,Comp>> : std::integral_constant<size_t, 2> {};
+
+
+/// Contains node with minimal key, O(h)
+template <typename Tree, typename Prev = NIL>
+struct min_node;
+
+template <typename Prev>
+struct min_node<NIL,Prev> { using type = Prev; };
+
+template <typename Tree, typename>
+struct min_node { using type = typename min_node<typename Tree::LT, Tree>::type; };
+
+template <typename Tree, typename Prev = NIL>
+using min_node_t = typename min_node<Tree, Prev>::type;
+
+
+/// Removes node with given T from tree, O(h)
+template <typename Tree, typename T>
+struct remove;
+
+template <typename T>
+struct remove<NIL,T> { using type = NIL; };
+
+template <typename Tree, typename T>
+struct remove {
+//private:
+    enum : bool { is_less   = Tree::comp::template lt<T, typename Tree::type>::value };
+    enum : bool { is_equal  = Tree::comp::template eq<T, typename Tree::type>::value };
+    
+    using key = typename min_node_t<
+        typename std::conditional<
+            is_equal && children_amount<Tree>::value == 2,
+            typename Tree::RT,
+            leaf<typename Tree::type, typename Tree::comp>
+        >::type
+    >::type;
+    
+    
+    /// Unreachable
+    static leaf<T, typename Tree::comp> // type?
+    min_arg_dispatch(...);
+    
+    template <typename Bush>
+    static typename std::enable_if<sizeof(typename Bush::RT::type), typename Bush::RT>::type
+    min_arg_dispatch(Bush&&);
+    
+    using minimal_right_node = min_node_t<decltype(min_arg_dispatch(std::declval<Tree>()))>;
+    
+    
+    // result = less ? remove(left) : greater ? remove(right) : STOP;
+    using modified_subtree = typename remove<
+        typename std::conditional<
+            is_less,
+            typename Tree::LT,
+            typename Tree::RT
+        >::type,
+        typename std::conditional<
+            is_equal,
+            typename minimal_right_node::type,
+            T
+        >::type
+    >::type;
+    
+    
+    static typename Tree::RT
+    root_dispatcher(...);
+    
+    template <typename Bush>
+    static typename Bush::LT
+    root_dispatcher(Bush&&);
+    
+    
+    static typename Tree::type
+    key_dispatcher(...);
+    
+    template <typename Bush>
+    static typename min_node_t<typename Bush::RT>::type
+    key_dispatcher(Bush&&);
+    
+public:
+    using type = typename std::conditional<
+        is_equal && children_amount<Tree>::value == 1,
+        decltype(root_dispatcher(std::declval<Tree>())),
+        node<
+            typename std::conditional<
+                is_equal,
+                typename minimal_right_node::type,
+                typename Tree::type
+            >::type,
+            typename std::conditional<
+                is_less,
+                modified_subtree,
+                typename Tree::LT
+            >::type,
+            typename std::conditional<
+                is_less,
+                typename Tree::RT,
+                modified_subtree
+            >::type,
+            typename Tree::comp
+        >
+    >::type;
+};
+
+template <typename Tree, typename T>
+using remove_t = typename remove<Tree, T>::type;
 
 
 } // tree
