@@ -354,6 +354,14 @@ void ct_test() {
             num_t<8>
         >>;
         static_assert(std::is_same<rem2, rem1>::value, "");
+        
+        using rem3 = remove_tuple_t<t6, std::tuple<num_t<5>>>;
+        using rem4 = remove_tuple_t<t6, std::tuple<num_t<5>, num_t<8>>>;
+        
+        static_assert(!std::is_same<rem3, rem4>::value, "");
+        
+        using rem5 = remove_tuple_t<t6, std::tuple<num_t<3>, num_t<7>, num_t<5>>>;
+        stdcout(print<rem5, value_printer>::str());
     }
     
     {

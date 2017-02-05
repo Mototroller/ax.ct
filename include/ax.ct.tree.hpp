@@ -202,25 +202,19 @@ struct print {
 private:
     enum : size_t { floor_length = 8 };
     
-    template <typename LT, typename RT>
-    static auto path() -> typename std::enable_if<
-        !std::is_same<LT,NIL>::value && !std::is_same<RT,NIL>::value,
-    std::string>::type { return "<"; }
+    static auto has_left(...) ->
+    decltype(std::false_type());
     
-    template <typename LT, typename RT>
-    static auto path() -> typename std::enable_if<
-        std::is_same<LT,NIL>::value && std::is_same<RT,NIL>::value,
-    std::string>::type { return ""; }
+    template <typename Bush>
+    static auto has_left(Bush&&) ->
+    decltype(std::declval<typename Bush::LT::type>(), std::true_type());
     
-    template <typename LT, typename RT>
-    static auto path() -> typename std::enable_if<
-        !std::is_same<LT,NIL>::value && std::is_same<RT,NIL>::value,
-    std::string>::type { return "/"; }
+    static auto has_right(...) ->
+    decltype(std::false_type());
     
-    template <typename LT, typename RT>
-    static auto path() -> typename std::enable_if<
-        std::is_same<LT,NIL>::value && !std::is_same<RT,NIL>::value,
-    std::string>::type { return "\\"; }
+    template <typename Bush>
+    static auto has_right(Bush&&) ->
+    decltype(std::declval<typename Bush::RT::type>(), std::true_type());
     
 public:
     static std::string str() {
@@ -228,7 +222,13 @@ public:
         auto rp = print<typename Node::RT, Printer, Depth + 1, 2>::str();
         bool end = (lp.length() + rp.length() == 0);
         
-        auto next = path<typename Node::LT, typename Node::RT>();
+        char m[2][2] = {{' ','\\'},{'/','<'}};
+        
+        auto next = std::string(1, m
+            [decltype(has_left (std::declval<Node>()))::value]
+            [decltype(has_right(std::declval<Node>()))::value]
+        );
+        //auto next = path<typename Node::LT, typename Node::RT>();
         auto prev = std::string(From == 1 ? "/" : From == 2 ? "\\" : "");
         
         auto val = Printer::template str<typename Node::type>();
@@ -441,12 +441,12 @@ private:
         >::type
     >::type;
     
-    static typename Tree::RT
-    root_dispatcher(...);
+    static auto root_dispatcher(...) ->
+    typename Tree::RT;
     
     template <typename Bush>
-    static typename std::enable_if<sizeof(typename Bush::LT::type), typename Bush::LT>::type
-    root_dispatcher(Bush&&);
+    static auto root_dispatcher(Bush&&) ->
+    decltype(Bush::LT::type, Bush::LT);
     
 public:
     using type = typename std::conditional<
