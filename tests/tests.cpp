@@ -361,7 +361,15 @@ void ct_test() {
         static_assert(!std::is_same<rem3, rem4>::value, "");
         
         using rem5 = remove_tuple_t<t6, std::tuple<num_t<3>, num_t<7>, num_t<5>>>;
-        stdcout(print<rem5, value_printer>::str());
+        static_assert(rem5::height<>::value == 3, "");
+        
+        using t7 = rem5::insert<num_t<1>>;
+        static_assert(t7::height<>::value == 4, "");
+        stdcout(t7::stringify<value_printer>::str());
+        
+        using rem6 = t7::erase<num_t<2>>;
+        static_assert(rem6::height<>::value == 3, "");
+        stdcout(rem6::stringify<value_printer>::str());
     }
     
     {

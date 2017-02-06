@@ -35,7 +35,40 @@ struct sizeof_comp : public eq_traits<sizeof_comp> {
 };
 
 
-/// --- node --- ///
+/// --- node, interface --- ///
+
+/// Contains height of tree, O(n)
+template <typename Node>
+struct height;
+
+/// Constructs tuple of ordered tree elements (inorder tree traversal), O(n)
+template <typename Node>
+struct walk;
+
+/// Constructs tree string representation (for debuging), O(n)
+template <typename Node, typename Printer, size_t Depth = 0, size_t From = 0>
+struct print;
+
+/**
+ * Finds node containing type equal to T in terms of comparators from Comp, O(h)
+ * @arg Node    - root of tree
+ * @arg T       - type to be found inside some node
+ * @arg Comp    - struct containing "lt" and "eq" type comparators (templates)
+ * 
+ * Contains:
+ *      type    - found subtree
+ *      tree    - back reference to Node
+ */
+template <typename Node, typename T, typename Comp = typename Node::comp>
+struct search;
+
+/// Pushes type to Tree, O(h)
+template <typename Tree, typename T, typename Comp = typename Tree::comp>
+struct insert;
+
+/// Removes node with given T from tree, O(h)
+template <typename Tree, typename T>
+struct remove;
 
 /**
  * Main binary tree entity.
@@ -54,6 +87,24 @@ struct node {
     using comp  = Comp;     // types comparator (see "sizeof_comp" example above)
     
     //using parent = Parent;  // back reference to parent node TODO: difficult as shit!
+    
+    template <typename Tree = node>
+    using height = std::integral_constant<size_t, height<Tree>::value>;
+    
+    template <typename Tree = node>
+    using inorder_traversal = typename walk<Tree>::type;
+    
+    template <typename Printer>
+    using stringify = print<node, Printer>;
+    
+    template <typename U>
+    using find = typename search<node, U, comp>::type;
+    
+    template <typename U>
+    using insert = typename insert<node, U, comp>::type;
+    
+    template <typename U>
+    using erase = typename remove<node, U>::type;
 };
 
 template <typename T, typename C = sizeof_comp>
@@ -81,9 +132,6 @@ struct tree_eq<node<U,Rest1...>, node<U,Rest2...>> : std::integral_constant<bool
     tree_eq<typename node<U,Rest1...>::RT, typename node<U,Rest2...>::RT>::value
 > {};
 
-/// Contains height of tree
-template <typename Tree>
-struct height;
 
 template <>
 struct height<NIL> : std::integral_constant<size_t, 0> {};
@@ -98,10 +146,6 @@ struct height {
 
 
 /// --- walk, O(n) --- ///
-
-/// Constructs tuple of ordered tree elements (inorder tree traversal)
-template <typename Node>
-struct walk;
 
 template <>
 struct walk<NIL> { using type = std::tuple<>; };
@@ -190,10 +234,6 @@ struct sizeof_printer {
     static std::string str() { return std::to_string(sizeof(T)); }
 };
 
-/// Constructs tree string representation (for debuging)
-template <typename Node, typename Printer = sizeof_printer, size_t Depth = 0, size_t From = 0>
-struct print;
-
 template <typename Printer, size_t Depth, size_t From>
 struct print<NIL,Printer,Depth,From> { static std::string str() { return ""; } };
 
@@ -243,19 +283,6 @@ public:
 
 /// --- search, O(h) --- ///
 
-/**
- * Finds node containing type equal to T in terms of comparators from Comp.
- * @arg Node    - root of tree
- * @arg T       - type to be found inside some node
- * @arg Comp    - struct containing "lt" and "eq" type comparators (templates)
- * 
- * Contains:
- *      type    - found subtree
- *      tree    - back reference to Node
- */
-template <typename Node, typename T, typename Comp = typename Node::comp>
-struct search;
-
 //template <typename Node, typename Comp> // must not find NIL
 //struct search<Node,NIL,Comp> { using type = NIL; };
 
@@ -282,9 +309,6 @@ using search_t = typename search<Node, T, Comp>::type;
 
 
 /// --- insert, O(h) --- ///
-
-template <typename Tree, typename T, typename Comp = typename Tree::comp>
-struct insert;
 
 template <typename T, typename Comp>
 struct insert<NIL,T,Comp> { using type = leaf<T,Comp>; };
@@ -401,10 +425,6 @@ template <typename Tree, typename Prev = NIL>
 using min_node_t = typename min_node<Tree, Prev>::type;
 
 
-/// Removes node with given T from tree, O(h)
-template <typename Tree, typename T>
-struct remove;
-
 template <typename T>
 struct remove<NIL,T> { using type = NIL; };
 
@@ -441,12 +461,23 @@ private:
         >::type
     >::type;
     
+    // TODO: unacceptable if c-tors are deleted, but more simple
     static auto root_dispatcher(...) ->
     typename Tree::RT;
     
     template <typename Bush>
     static auto root_dispatcher(Bush&&) ->
-    decltype(Bush::LT::type, Bush::LT);
+    decltype(typename Bush::LT::type(), typename Bush::LT());
+    //*/
+    
+    /*/! Common solution, pretty overkill, but general
+    static typename Tree::RT
+    root_dispatcher(...);
+    
+    template <typename Bush>
+    static typename std::enable_if<sizeof(typename Bush::LT::type), typename Bush::LT>::type
+    root_dispatcher(Bush&&);
+    //*/
     
 public:
     using type = typename std::conditional<
